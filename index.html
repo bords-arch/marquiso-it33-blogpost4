@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Can We Trust the "SOC Pilot"? Evaluating the Autonomous SOC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg: #eef2f0;
+    --surface: #f9fbfa;
+    --ink: #14232b;
+    --muted: #4d5f66;
+    --line: #c6d0cc;
+    --accent: #2447c9;
+    --accent-ink: #ffffff;
+    --mark: #f3d34a;
+    --ok: #1f7a4d;
+    --head: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1a1f;
+      --surface: #16252c;
+      --ink: #e6eeeb;
+      --muted: #9db0b2;
+      --line: #2c4048;
+      --accent: #8aa4ff;
+      --accent-ink: #0f1a1f;
+      --mark: #d9b92f;
+      --ok: #5fd196;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1a1f;
+    --surface: #16252c;
+    --ink: #e6eeeb;
+    --muted: #9db0b2;
+    --line: #2c4048;
+    --accent: #8aa4ff;
+    --accent-ink: #0f1a1f;
+    --mark: #d9b92f;
+    --ok: #5fd196;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); scroll-behavior: smooth; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .wrap { width: 100%; max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
+
+  /* top bar */
+  .bar { border-bottom: 1px solid var(--line); }
+  .bar .wrap { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: .9rem; padding-bottom: .9rem; }
+  .brand { font-family: var(--head); font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+  .bar nav { display: flex; gap: 1.25rem; font-family: var(--head); font-size: .95rem; }
+  .bar nav a { color: var(--ink); text-decoration: none; }
+  .bar nav a:hover { text-decoration: underline; }
+
+  .bar .wrap { flex-wrap: wrap; }
+  .account { position: relative; }
+  .acct-btn {
+    display: flex; align-items: center; gap: .6rem;
+    font: inherit; color: var(--ink);
+    background: transparent; border: 0; padding: .2rem .4rem .2rem .2rem;
+    border-radius: 999px; cursor: pointer;
+  }
+  .acct-btn:hover { background: var(--surface); }
+  .avatar-sm {
+    width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-ink);
+    font-family: var(--head); font-weight: 700; font-size: .85rem;
+  }
+  .chev { transition: transform .15s; }
+  .acct-btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .acct-menu {
+    position: absolute; left: 0; top: calc(100% + .5rem); z-index: 20;
+    width: min(22rem, calc(100vw - 2.5rem));
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 1rem 1.1rem; box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    font-family: var(--head);
+  }
+  .acct-menu[hidden] { display: none; }
+  .acct-title { margin: 0 0 .75rem; font-weight: 700; font-size: 1rem; }
+  .acct-menu dl { margin: 0; display: grid; gap: .65rem; }
+  .acct-menu dt { font-size: .85rem; color: var(--muted); }
+  .acct-menu dd { margin: 0; font-size: 1rem; font-weight: 500; overflow-wrap: anywhere; }
+  .acct-menu { max-height: calc(100vh - 6rem); overflow-y: auto; }
+  .mail-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); display: grid; gap: .6rem; }
+  .mail-form .mf-title { margin: 0; font-weight: 700; font-size: 1rem; }
+  .mail-form label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+  .mail-form input, .mail-form textarea {
+    font: inherit; font-size: 1rem; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: .5rem .6rem; width: 100%;
+  }
+  .mail-form textarea { resize: vertical; min-height: 6rem; }
+  .mail-form input:focus-visible, .mail-form textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .mf-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  .send-btn {
+    display: inline-block; background: var(--accent); color: var(--accent-ink);
+    padding: .55rem 1rem; border-radius: 6px; text-decoration: none; font-weight: 500;
+  }
+  .send-btn:hover { filter: brightness(1.08); }
+  .copy-btn {
+    font: inherit; font-size: .92rem; color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 6px; padding: .5rem .8rem; cursor: pointer;
+  }
+  .copy-btn:hover { background: var(--bg); }
+  .mf-note { margin: 0; font-size: .85rem; color: var(--muted); }
+
+  /* hero */
+  .hero { padding: 3.5rem 0 3rem; }
+  .hero .grid { display: grid; grid-template-columns: 1fr; gap: 2.5rem; align-items: start; }
+  h1 {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5.2vw, 3.6rem);
+    line-height: 1.04;
+    letter-spacing: -.025em;
+    margin: 0 0 1.25rem;
+    text-wrap: balance;
+  }
+  .lede { font-size: 1.2rem; color: var(--muted); max-width: 32rem; margin: 0 0 1.5rem; }
+  .byline { font-family: var(--head); font-size: .95rem; color: var(--muted); margin: 0 0 1.75rem; }
+  .btn {
+    display: inline-block;
+    font-family: var(--head);
+    font-weight: 500;
+    background: var(--accent);
+    color: var(--accent-ink);
+    padding: .7rem 1.2rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .btn:hover { filter: brightness(1.08); }
+
+  /* ledger */
+  .ledger { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .ledger-head { padding: 1rem 1.15rem .85rem; border-bottom: 1px solid var(--line); font-family: var(--head); }
+  .ledger-head strong { display: block; font-size: 1.05rem; }
+  .ledger-head span { font-size: .9rem; color: var(--muted); }
+  .scroll-x { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--head); font-size: .92rem; min-width: 30rem; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: .6rem 1.15rem; border-bottom: 1px solid var(--line); }
+  td { padding: .75rem 1.15rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-block; padding: .05rem .5rem; border: 1px solid var(--line); border-radius: 4px; font-size: .85rem; }
+  .ev {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: .25rem .8rem;
+    min-width: 8.5rem;
+    text-align: left;
+  }
+  .ev[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ev[aria-pressed="true"] { color: #0f1a1f; } }
+  :root[data-theme="dark"] .ev[aria-pressed="true"] { color: #0f1a1f; }
+  .ledger-foot { padding: .85rem 1.15rem; border-top: 1px solid var(--line); font-family: var(--head); font-size: .92rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .ledger-foot b { background: linear-gradient(transparent 55%, var(--mark) 55%); padding: 0 .15rem; color: var(--ink); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ledger-foot b { background: linear-gradient(transparent 55%, rgba(217,185,47,.45) 55%); } }
+  :root[data-theme="dark"] .ledger-foot b { background: linear-gradient(transparent 55%, rgba(217,185,47,.45) 55%); }
+
+  /* profile */
+  .profile { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); padding: 3rem 0; }
+  .profile .grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+  @media (min-width: 52rem) { .profile .grid { grid-template-columns: 14rem 1fr; gap: 3rem; } }
+  h2 { font-family: var(--head); font-weight: 700; font-size: 1.6rem; letter-spacing: -.015em; line-height: 1.2; margin: 0 0 .9rem; }
+  .avatar {
+    width: 9rem; height: 9rem; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line);
+    display: grid; place-items: center;
+    font-family: var(--head); font-weight: 700; font-size: 2.6rem; color: var(--accent);
+  }
+  .facts { list-style: none; padding: 0; margin: 1.25rem 0 0; font-family: var(--head); font-size: .98rem; display: grid; gap: .5rem; }
+  .facts li { display: grid; grid-template-columns: 7.5rem 1fr; gap: .75rem; }
+  .facts span:first-child { color: var(--muted); }
+  .profile h2 { margin-bottom: 1.1rem; }
+  .details { margin: 0; display: grid; grid-template-columns: 1fr; gap: 1rem 2.5rem; font-family: var(--head); }
+  @media (min-width: 40rem) { .details { grid-template-columns: repeat(3, auto); justify-content: start; } }
+  .details dt { font-size: .9rem; color: var(--muted); margin-bottom: .1rem; }
+  .details dd { margin: 0; font-size: 1.15rem; font-weight: 500; }
+
+  /* post */
+  .post { padding: 3.5rem 0 4rem; }
+  .post .wrap { max-width: 44rem; }
+  .meta { font-family: var(--head); font-size: .95rem; color: var(--muted); margin: 0 0 2rem; }
+  .post h2 { margin-top: 2.6rem; }
+  .post h3 { font-family: var(--head); font-size: 1.1rem; margin: 1.6rem 0 .4rem; }
+  .post p { margin: 0 0 1.15rem; }
+  .post ul { margin: 0 0 1.25rem; padding-left: 1.25rem; }
+  .post ol { margin: 0 0 1.25rem; padding-left: 1.4rem; }
+  .post li { margin-bottom: .6rem; }
+  .post .quote {
+    border-left: 3px solid var(--mark);
+    padding: .1rem 0 .1rem 1.1rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+  }
+  .refs { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+  .refs p { padding-left: 2rem; text-indent: -2rem; font-size: 1rem; margin: 0 0 .9rem; line-height: 1.6; }
+
+  .flash { outline: 3px solid var(--mark); outline-offset: 6px; border-radius: 4px; }
+  .chat-fab {
+    position: fixed; left: 1.25rem; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); z-index: 30;
+    display: flex; align-items: center; gap: .5rem;
+    font-family: var(--head); font-weight: 500; font-size: .95rem;
+    background: var(--ink); color: var(--bg);
+    border: 0; border-radius: 999px; padding: .65rem 1.1rem; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  .chat-fab:hover { filter: brightness(1.15); }
+  .chat-fab { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .chat-fab:active { cursor: grabbing; }
+  .chat-panel {
+    position: fixed; left: 1.25rem; bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); z-index: 30;
+    width: min(23rem, calc(100vw - 2.5rem)); height: min(30rem, calc(100vh - 8rem));
+    display: flex; flex-direction: column;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    font-family: var(--head); font-size: .95rem; line-height: 1.45; overflow: hidden;
+  }
+  .chat-panel[hidden] { display: none; }
+  .chat-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+  .chat-x { font: inherit; font-size: .9rem; color: var(--muted); background: transparent; border: 0; cursor: pointer; padding: .2rem .4rem; }
+  .chat-x:hover { color: var(--ink); }
+  .chat-log { flex: 1; overflow-y: auto; padding: .9rem 1rem; display: flex; flex-direction: column; gap: .6rem; }
+  .msg { max-width: 88%; padding: .55rem .8rem; border-radius: 10px; overflow-wrap: anywhere; }
+  .msg.bot { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+  .msg.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
+  .go-btn { display: block; width: fit-content; text-decoration: none; margin-top: .5rem; font: inherit; font-weight: 500; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
+  .go-btn:hover { filter: brightness(1.08); }
+  .chat-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 1rem .6rem; }
+  .chip { font: inherit; font-size: .85rem; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: .25rem .7rem; cursor: pointer; }
+  .chip:hover { background: var(--bg); }
+  .chat-input { display: flex; gap: .5rem; padding: .7rem 1rem; border-top: 1px solid var(--line); }
+  .chat-input input { flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .5rem .6rem; }
+  .chat-input input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .chat-input button { font: inherit; font-weight: 500; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 6px; padding: .5rem .9rem; cursor: pointer; }
+  .to-top {
+    position: fixed;
+    right: 1.25rem;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    font-family: var(--head);
+    font-weight: 500;
+    font-size: .95rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    border-radius: 999px;
+    padding: .65rem 1.1rem;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s;
+  }
+  .to-top.show { opacity: 1; visibility: visible; }
+  .to-top:hover { filter: brightness(1.08); }
+  footer { border-top: 1px solid var(--line); padding: 1.5rem 0; font-family: var(--head); font-size: .9rem; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="account">
+      <button type="button" class="acct-btn" id="acctBtn" aria-expanded="false" aria-controls="acctMenu" aria-haspopup="true">
+        <span class="avatar-sm" aria-hidden="true">CM</span>
+        <span class="brand">Cyle Marquiso</span>
+        <svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="acct-menu" id="acctMenu" role="region" aria-label="Student details" hidden>
+        <p class="acct-title">Student details</p>
+        <dl>
+          <div><dt>Name</dt><dd>Cyle Marquiso</dd></div>
+          <div><dt>Section</dt><dd>IT33</dd></div>
+          <div><dt>Subject</dt><dd>IT 372</dd></div>
+          <div><dt>School email</dt><dd><a href="mailto:cyle.marquiso@urio.edu.ph">cyle.marquiso@urio.edu.ph</a></dd></div>
+        </dl>
+        <div class="mail-form">
+          <p class="mf-title">Send me an email</p>
+          <label>Your name
+            <input type="text" id="mfName" autocomplete="name">
+          </label>
+          <label>Subject
+            <input type="text" id="mfSubject">
+          </label>
+          <label>Message
+            <textarea id="mfMessage"></textarea>
+          </label>
+          <div class="mf-actions">
+            <a class="send-btn" id="mfSend" href="mailto:cyle.marquiso@urio.edu.ph">Send email</a>
+            <button type="button" class="copy-btn" id="mfCopy">Copy address</button>
+          </div>
+          <p class="mf-note" id="mfNote" role="status">Opens your email app with this message ready to send.</p>
+        </div>
+      </div>
+    </div>
+    <nav aria-label="Main">
+      <a href="#post">Blog post</a>
+      <a href="#references">References</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <article class="post" id="post">
+    <div class="wrap">
+      <h2 id="intro" style="margin-top:0">Can We Trust the "SOC Pilot"? Evaluating the Autonomous SOC</h2>
+
+      <p>Anyone who has flown on a commercial airliner has trusted a machine with their life. The autopilot handles most of the flight, and the pilots watch, decide, and take over when something unexpected happens. That picture sits at the center of an IBM article by John Velisaris (2025), which argues that security operations centers (SOCs) should work the same way. Machines would handle routine operations, and human analysts would become "SOC pilots" who step in only when something unfamiliar appears, such as a zero-day attack. I think the idea is partly realistic and partly premature. It is only responsible if the organization builds in safeguards that the article barely discusses.</p>
+
+      <h2 id="s-claims">What the SOC pilot model actually claims</h2>
+      <p>Velisaris (2025) starts with a familiar problem. SOC analysts drown in noise, lack context when they investigate alerts, and lose time to manual "swivel chair" work, where they copy information between tools. His proposed fix is a multi-agent AI system that decides what context it needs, gathers it, and then acts. Humans are reserved for situations nobody has seen before.</p>
+      <p>The article's second claim is the one I found most convincing: automation fails without context. A playbook can be written to quarantine a host if it is not a server and is showing known malicious activity, but it cannot run until it knows whether the host is a critical server or an ordinary workstation (Velisaris, 2025). In IBM's system, an agent that finds the asset context missing asks other agents for help, such as vulnerability management, the configuration management database (CMDB), and endpoint detection tools. It can infer from details like the hostname and network location that a device is probably a workstation.</p>
+      <p>It is also worth noticing who wrote this. The author is an IBM consultant describing IBM's own product. He admits that whether AI will really move analysts into the pilot's chair is "still unknown," so the article is closer to a vision than to evidence. I read it as a serious proposal that still needs to be tested.</p>
+
+      <h2 id="s-safe">Where AI can safely act on its own</h2>
+      <p>Not all autonomy is equally risky. In my view, AI can act alone when an action meets three conditions: it is <strong>reversible</strong>, it has a <strong>small blast radius</strong>, and it rests on <strong>reliable context</strong>. Several routine tasks pass that test easily:</p>
+      <ul>
+        <li>Removing duplicate alerts and closing alerts that match known harmless patterns.</li>
+        <li>Enriching alerts with data from other tools, such as reputation lookups and vulnerability status.</li>
+        <li>Opening tickets, writing case summaries, and notifying the right team.</li>
+        <li>Isolating a confirmed ordinary workstation that is showing known malware behavior, since the device can be released again.</li>
+      </ul>
+      <p>Velisaris (2025) points out that automation already works well in closed systems like endpoint detection and response, where the software and its console understand all the variables. He also describes a hyperscaler whose understanding of every asset in its stack lets it run with minimal SOC involvement. The lesson I take from this is that autonomy follows certainty. The more completely an organization knows its own environment, the more safely it can let machines act.</p>
+
+      <h2 id="s-human">Where human judgment must remain</h2>
+      <p>The same logic shows where humans must stay in the loop. The first case is the one the article names, a zero-day or any truly novel threat. An agent trained on past patterns has no basis for confidence when the pattern is new. The second case is any action whose consequences reach into the business. Shutting down a server that supports payroll, patient records, or customer orders is a business decision as much as a security one, and the analyst making it should know who will be affected. Third come decisions with legal or regulatory weight, such as when to notify regulators or customers. Fourth, and easy to forget, is accountability. When an automated action causes an outage, a person or a team has to answer for it, and it should be possible to see why the agent acted.</p>
+      <p>The airline comparison is also weaker than it first appears. Pilots operate instruments that are designed to be trusted, in an environment where nobody is deliberately feeding them false information. A SOC works against an adversary who is actively trying to deceive its tools, and its data about its own assets is often messy. Pilots also train constantly in simulators so that they stay sharp. Bainbridge (1983) described the deeper problem decades ago: the more advanced an automated system becomes, the more crucial the human operator's contribution may be, and operators who only monitor stop practicing the skills they will need in an emergency. A SOC that automates all the routine work could slowly lose the experience that makes its analysts good at handling the rare, hard cases. That is exactly the work the pilot model leaves to them.</p>
+
+      <h2 id="s-assets">When the asset information is incomplete or wrong</h2>
+      <p>This is where I think the model is most fragile. An agent that depends on context is only as good as that context, and the context comes from inventories that are often incomplete or out of date.</p>
+      <p>Imagine a stale CMDB. A critical server that was renamed during a migration may now look like an ordinary workstation, and an agent that infers its role from its hostname and network location could isolate it and cause an outage. The reverse is just as bad. A laptop used by an administrator may be classified as low value, so a compromise gets treated as routine when it is actually serious. And devices that were never recorded at all, such as forgotten test machines and unapproved cloud services, give the agent no context to find, so it may guess or skip them.</p>
+      <p>The IBM example of inferring a workstation from its hostname and network location shows both the strength and the weakness of the approach. It copies what a human analyst would reason, but a human analyst also knows when a hunch is not enough and can pick up the phone. Whether an agent has that instinct depends on how it was designed.</p>
+      <p>The control standards already address this. NIST's control catalog calls for a complete and accurate inventory of system components and encourages automated mechanisms to keep it current and accurate (Joint Task Force, 2020). In plain terms, an autonomous SOC needs a trustworthy asset inventory before it needs smarter agents. I would add some rules to any deployment:</p>
+      <ol>
+        <li><strong>Unknown means escalate.</strong> If the agent cannot confirm what an asset is, it should hand the case to a human instead of assuming.</li>
+        <li><strong>Match autonomy to confidence.</strong> High-impact actions on critical or uncertain assets should require approval.</li>
+        <li><strong>Log the evidence.</strong> Every automated decision should record what context the agent used, so that auditors and analysts can check it later.</li>
+        <li><strong>Check the data itself.</strong> Regularly compare the inventory with what is actually on the network, because the agents trust the inventory.</li>
+        <li><strong>Keep a kill switch.</strong> Humans must be able to pause or reverse automation quickly.</li>
+      </ol>
+
+      <h2 id="s-verdict">My verdict</h2>
+      <p>I think the SOC pilot model is realistic for the routine layer of security work, where actions are reversible and the context is reliable. It is not yet responsible as a blanket approach, because the quality of an agent's decisions is limited by the quality of its asset data, and many organizations do not have good data. The model also risks wearing down the human skills it depends on. I would adopt it in stages, expanding the machine's authority only as the organization proves that it knows what it owns. The article itself says the transition to full autonomy has not yet been achieved (Velisaris, 2025), and that seems like the honest place to leave it.</p>
+
+      <h2 id="s-skills">What I would need to become a SOC pilot instead of being replaced by one</h2>
+      <p>If routine analysis becomes automated, the entry-level work I might have started with will shrink, so I need to build the skills that stay valuable.</p>
+      <ul>
+        <li><strong>Deep understanding of assets and context.</strong> I should learn how inventories, CMDBs, and network architectures work, and above all how they go wrong, since I would be the person who notices that the data an agent trusts is stale.</li>
+        <li><strong>Investigation and threat-hunting ability.</strong> Novel threats cannot be handled by following a playbook. I need to practice reasoning from raw logs and forming and testing hypotheses.</li>
+        <li><strong>Automation and scripting skills.</strong> Writing and reviewing SOAR playbooks, and reading how an agent made a decision, would let me supervise automation instead of simply depending on it.</li>
+        <li><strong>Incident response and business judgment.</strong> I need to weigh containment against disruption and explain the choice to non-technical leaders.</li>
+        <li><strong>Auditing and governance skills.</strong> The ability to check that an automated control produced evidence it was working turns what I'm learning in my coursework on risk and audit into a real advantage.</li>
+        <li><strong>Deliberate practice.</strong> Bainbridge's (1983) warning applies to me personally. I should keep investigating incidents by hand in labs and exercises, even when a tool could do it faster, so my skills do not fade.</li>
+      </ul>
+      <p>Becoming a pilot instead of a passenger means understanding the system well enough to know when to trust the autopilot and when to take the controls.</p>
+
+      <section class="refs" id="references" aria-labelledby="refs-title">
+        <h2 id="refs-title" style="margin-top:0">References</h2>
+        <p>Bainbridge, L. (1983). Ironies of automation. <em>Automatica, 19</em>(6), 775&ndash;779. <a href="https://doi.org/10.1016/0005-1098(83)90046-8">https://doi.org/10.1016/0005-1098(83)90046-8</a></p>
+        <p>Joint Task Force. (2020). <em>Security and privacy controls for information systems and organizations</em> (NIST Special Publication 800-53, Rev. 5). National Institute of Standards and Technology. <a href="https://doi.org/10.6028/NIST.SP.800-53r5">https://doi.org/10.6028/NIST.SP.800-53r5</a></p>
+        <p>Velisaris, J. (2025, May 8). <em>How agentic AI enables an autonomous SOC with minimal human involvement</em>. IBM Think. <a href="https://www.ibm.com/think/insights/agentic-ai-enables-autonomous-soc">https://www.ibm.com/think/insights/agentic-ai-enables-autonomous-soc</a></p>
+      </section>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">© 2026 Cyle Marquiso. Coursework blog.</div>
+</footer>
+
+<button type="button" class="chat-fab" id="chatFab" title="Drag to move" aria-expanded="false" aria-controls="chatPanel">
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H7l-3 3v-3H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+  <span>Ask</span>
+</button>
+<section class="chat-panel" id="chatPanel" aria-label="Find something in this post" hidden>
+  <div class="chat-head"><strong>Find something in this post</strong><button type="button" class="chat-x" id="chatClose">Close</button></div>
+  <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
+  <div class="chat-chips" id="chatChips"></div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Where is...?" aria-label="Ask where something is" autocomplete="off">
+    <button type="button" id="chatSend">Send</button>
+  </div>
+</section>
+<button type="button" class="to-top" id="toTop" aria-label="Back to top">Back to top</button>
+<script>
+  (function () {
+    var btn = document.getElementById('toTop');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function toggle() { btn.classList.toggle('show', window.scrollY > 600); }
+    window.addEventListener('scroll', toggle, { passive: true });
+    toggle();
+    btn.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var btn = document.getElementById('acctBtn');
+    var menu = document.getElementById('acctMenu');
+    var acct = btn.parentNode;
+    var pinned = false, hovering = false, timer;
+    function setOpen(open) {
+      menu.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (!open) pinned = false;
+    }
+    acct.addEventListener('pointerenter', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      hovering = true;
+      clearTimeout(timer);
+      setOpen(true);
+    });
+    acct.addEventListener('pointerleave', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      hovering = false;
+      if (pinned) return;
+      timer = setTimeout(function () { setOpen(false); }, 150);
+    });
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (menu.hidden) { setOpen(true); pinned = true; }
+      else if (!pinned && hovering) { pinned = true; }
+      else { setOpen(false); }
+    });
+    document.addEventListener('click', function (e) {
+      if (!menu.hidden && !menu.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !menu.hidden) { setOpen(false); btn.focus(); }
+    });
+
+    // Email composer: builds a mailto link from the fields
+    var MAIL = 'cyle.marquiso@urio.edu.ph';
+    var fName = document.getElementById('mfName');
+    var fSubj = document.getElementById('mfSubject');
+    var fMsg = document.getElementById('mfMessage');
+    var send = document.getElementById('mfSend');
+    var copy = document.getElementById('mfCopy');
+    var note = document.getElementById('mfNote');
+    var defaultNote = note.textContent;
+    function build() {
+      var n = fName.value.trim();
+      var s = fSubj.value.trim() || 'Message from your coursework blog';
+      var body = fMsg.value.trim() + (n ? '\n\nFrom: ' + n : '');
+      send.href = 'mailto:' + MAIL + '?subject=' + encodeURIComponent(s) + '&body=' + encodeURIComponent(body);
+    }
+    [fName, fSubj, fMsg].forEach(function (el) { el.addEventListener('input', build); });
+    build();
+    menu.addEventListener('focusin', function () { pinned = true; });
+    send.addEventListener('click', function (e) {
+      if (!fMsg.value.trim()) {
+        e.preventDefault();
+        note.textContent = 'Write a message first.';
+        fMsg.focus();
+      } else {
+        note.textContent = defaultNote;
+      }
+    });
+    copy.addEventListener('click', function () {
+      function done(ok) { note.textContent = ok ? 'Address copied: ' + MAIL : 'Could not copy. Address: ' + MAIL; }
+      try {
+        navigator.clipboard.writeText(MAIL).then(function () { done(true); }, function () { done(false); });
+      } catch (err) { done(false); }
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var fab = document.getElementById('chatFab');
+    var panel = document.getElementById('chatPanel');
+    var closeBtn = document.getElementById('chatClose');
+    var log = document.getElementById('chatLog');
+    var chips = document.getElementById('chatChips');
+    var input = document.getElementById('chatInput');
+    var sendBtn = document.getElementById('chatSend');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function isSmall() { return window.innerWidth < 640; }
+
+    var SECTIONS = [
+      { id: 'intro', title: 'Introduction', text: 'The post opens with the airline comparison and my overall view of the SOC pilot idea.', keys: ['introduction', 'intro', 'overview', 'beginning', 'top of the post', 'what is this post about', 'summary', 'airline', 'airliner', 'autopilot'] },
+      { id: 's-claims', title: 'What the SOC pilot model claims', text: 'This section summarizes the IBM article and what it argues.', keys: ['claims', 'ibm', 'velisaris', 'swivel', 'agentic', 'soc pilot', 'what does the article say', 'the article', 'atom'] },
+      { id: 's-safe', title: 'Where AI can safely act on its own', text: 'This section covers the tasks that automation can safely handle alone.', keys: ['safely', 'safe', 'act on its own', 'alone', 'autonomy', 'autonomous', 'automation', 'reversible', 'blast radius', 'routine', 'enrich', 'enrichment', 'what can ai do'] },
+      { id: 's-human', title: 'Where human judgment must remain', text: 'This section explains where humans must stay in charge.', keys: ['human', 'humans', 'judgment', 'judgement', 'zero-day', 'zero day', 'novel', 'accountability', 'legal', 'regulatory', 'analyst', 'analysts', 'oversight', 'decision', 'decisions'] },
+      { id: 's-assets', title: 'When the asset information is incomplete or wrong', text: 'This section covers what happens when the asset data an agent relies on is stale or missing.', keys: ['asset', 'assets', 'inventory', 'cmdb', 'context', 'wrong', 'incomplete', 'stale', 'hostname', 'escalate', 'kill switch', 'missing data', 'bad data'] },
+      { id: 's-verdict', title: 'My verdict', text: 'My overall evaluation of whether the SOC pilot model is realistic and responsible is here.', keys: ['verdict', 'opinion', 'realistic', 'responsible', 'conclusion', 'overall', 'evaluation', 'final thoughts', 'what do you think'] },
+      { id: 's-skills', title: 'Skills to become a SOC pilot', text: 'This section lists the skills I would build to become a SOC pilot instead of being replaced.', keys: ['skills', 'skill', 'become', 'replaced', 'career', 'learn', 'scripting', 'practice', 'future', 'job', 'jobs'] },
+      { id: 'references', title: 'References', text: 'The APA references are at the bottom of the page.', keys: ['reference', 'references', 'source', 'sources', 'citation', 'citations', 'cite', 'apa', 'bibliography', 'nist', 'bainbridge', 'where did you get'] },
+      { contact: true, title: 'Contact', text: 'You can email Cyle from the profile menu at the top of the page. I will open it for you.', keys: ['email', 'e-mail', 'contact', 'reach you', 'message you', 'send a message', 'student', 'author', 'who wrote', 'who are you', 'profile', 'section number', 'subject code'] }
+    ];
+    var STOP = { where: 1, what: 1, which: 1, this: 1, that: 1, with: 1, have: 1, from: 1, about: 1, find: 1, show: 1, tell: 1, does: 1, post: 1, page: 1, mention: 1, paragraph: 1, there: 1, talk: 1, take: 1, please: 1, could: 1, would: 1, want: 1, look: 1, looking: 1, section: 1 };
+    var index = null;
+
+    function norm(t) { return ' ' + t.toLowerCase().replace(/[^a-z0-9-]+/g, ' ') + ' '; }
+    function hasKey(padded, k) {
+      return padded.indexOf(' ' + k + ' ') !== -1 || (k.length > 4 && padded.indexOf(k) !== -1);
+    }
+    function addMsg(text, who, target, label) {
+      var d = document.createElement('div');
+      d.className = 'msg ' + who;
+      d.textContent = text;
+      if (target) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'go-btn';
+        b.textContent = label || 'Take me there';
+        b.addEventListener('click', function () { go(target, true); });
+        d.appendChild(b);
+      }
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+    function flash(el) {
+      el.classList.add('flash');
+      setTimeout(function () { el.classList.remove('flash'); }, 2500);
+    }
+    function go(el, closeOnSmall) {
+      if (closeOnSmall && isSmall()) setPanel(false);
+      el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      flash(el);
+    }
+    var MAILTO = 'mailto:cyle.marquiso@urio.edu.ph?subject=' + encodeURIComponent('Message from your coursework blog');
+    function addMailMsg(text) {
+      var d = document.createElement('div');
+      d.className = 'msg bot';
+      d.textContent = text;
+      var a = document.createElement('a');
+      a.className = 'go-btn';
+      a.href = MAILTO;
+      a.textContent = 'Email Cyle';
+      d.appendChild(a);
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+    function openMail() {
+      var a = document.createElement('a');
+      a.href = MAILTO;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    function openContact() {
+      if (isSmall()) setPanel(false);
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      var m = document.getElementById('acctMenu');
+      if (m && m.hidden) document.getElementById('acctBtn').click();
+      var link = m && m.querySelector('a[href^="mailto"]');
+      if (link) flash(link.parentNode);
+    }
+    function buildIndex() {
+      index = [];
+      document.querySelectorAll('#post p, #post li').forEach(function (el) {
+        index.push({ el: el, text: ' ' + el.textContent.toLowerCase() });
+      });
+    }
+    function qwords(t) {
+      return t.toLowerCase().split(/[^a-z0-9]+/).map(function (w) { return w.replace(/s$/, ''); }).filter(function (w) { return w.length >= 4 && !STOP[w] && !STOP[w + 's']; });
+    }
+    function answer(q) {
+      var raw = q.trim();
+      if (!raw) return;
+      addMsg(raw, 'me');
+      var padded = norm(raw);
+      if (/^(hi|hello|hey|good morning|good afternoon|good evening)( |$)/.test(raw.toLowerCase())) {
+        addMsg('Hi! Tell me what you are looking for, for example "Where are the references?", and I will take you there.', 'bot');
+        return;
+      }
+      var best = null, bestScore = 0;
+      SECTIONS.forEach(function (s) {
+        var sc = 0;
+        s.keys.forEach(function (k) { if (hasKey(padded, k)) sc += k.length; });
+        if (sc > bestScore) { bestScore = sc; best = s; }
+      });
+      if (best) {
+        if (best.contact) {
+          addMsg('The profile menu is at the top of the page. It has the school email and a short email form, so I am opening it now.', 'bot');
+          openContact();
+          return;
+        }
+        var el = document.getElementById(best.id);
+        addMsg('Found it: ' + best.title + '. ' + best.text, 'bot', el, 'Take me there again');
+        if (!isSmall()) go(el, false);
+        else addMsg('Tap the button above to jump there.', 'bot');
+        return;
+      }
+      if (!index) buildIndex();
+      var qw = qwords(raw), bestEl = null, bs = 0;
+      if (qw.length) {
+        index.forEach(function (item) {
+          var sc = 0;
+          qw.forEach(function (w) { if (item.text.indexOf(w) !== -1) sc++; });
+          if (sc > bs) { bs = sc; bestEl = item.el; }
+        });
+      }
+      if (bestEl && (bs >= 2 || (qw.length <= 2 && bs >= 1))) {
+        addMsg('The closest match is this passage.', 'bot', bestEl, 'Take me there');
+        if (!isSmall()) go(bestEl, false);
+        return;
+      }
+      addMsg('I could not find that in this post. Try asking about assets, classification and ownership, audit evidence, gaps, the checklist, the references, or how to email Cyle.', 'bot');
+    }
+    var moved = false, tracking = false, dragging = false, suppressClick = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    function clampFab() {
+      var r = fab.getBoundingClientRect();
+      var x = Math.min(Math.max(8, r.left), window.innerWidth - r.width - 8);
+      var y = Math.min(Math.max(8, r.top), window.innerHeight - r.height - 8);
+      fab.style.left = x + 'px';
+      fab.style.top = y + 'px';
+    }
+    function positionPanel() {
+      if (!moved) { panel.style.left = ''; panel.style.top = ''; panel.style.bottom = ''; return; }
+      var fr = fab.getBoundingClientRect();
+      var pr = panel.getBoundingClientRect();
+      var left = Math.min(Math.max(8, fr.left), window.innerWidth - pr.width - 8);
+      var top = fr.top - pr.height - 10;
+      if (top < 8) top = Math.min(fr.bottom + 10, window.innerHeight - pr.height - 8);
+      panel.style.left = left + 'px';
+      panel.style.top = Math.max(8, top) + 'px';
+      panel.style.bottom = 'auto';
+    }
+    function setPanel(open) {
+      panel.hidden = !open;
+      fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) { positionPanel(); input.focus(); }
+    }
+    fab.addEventListener('pointerdown', function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      var r = fab.getBoundingClientRect();
+      sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      tracking = true; dragging = false;
+      try { fab.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    fab.addEventListener('pointermove', function (e) {
+      if (!tracking) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!dragging && Math.abs(dx) + Math.abs(dy) < 6) return;
+      dragging = true; moved = true;
+      fab.style.bottom = 'auto';
+      fab.style.left = (ox + dx) + 'px';
+      fab.style.top = (oy + dy) + 'px';
+      clampFab();
+      if (!panel.hidden) positionPanel();
+    });
+    function endDrag(e, wasCancel) {
+      tracking = false;
+      if (dragging && !wasCancel) {
+        suppressClick = true;
+        setTimeout(function () { suppressClick = false; }, 0);
+      }
+      dragging = false;
+      try { fab.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+    fab.addEventListener('pointerup', function (e) { endDrag(e, false); });
+    fab.addEventListener('pointercancel', function (e) { endDrag(e, true); });
+    fab.addEventListener('keydown', function (e) {
+      var d = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      var r = fab.getBoundingClientRect();
+      moved = true;
+      fab.style.bottom = 'auto';
+      fab.style.left = (r.left + d[0]) + 'px';
+      fab.style.top = (r.top + d[1]) + 'px';
+      clampFab();
+      if (!panel.hidden) positionPanel();
+    });
+    window.addEventListener('resize', function () {
+      if (moved) { clampFab(); if (!panel.hidden) positionPanel(); }
+    });
+    fab.addEventListener('click', function () { if (suppressClick) return; setPanel(panel.hidden); });
+    closeBtn.addEventListener('click', function () { setPanel(false); fab.focus(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !panel.hidden) { setPanel(false); fab.focus(); }
+    });
+    function submit() { var v = input.value; input.value = ''; answer(v); }
+    sendBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+
+    ['Where are the references?', 'Where can AI act on its own?', 'What if asset data is wrong?', 'How can I email you?'].forEach(function (t) {
+      var c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip';
+      c.textContent = t;
+      c.addEventListener('click', function () { answer(t); });
+      chips.appendChild(c);
+    });
+    addMsg('Hi! I can help you find things in this post. Ask me where something is, like "Where are the references?", and I will take you there.', 'bot');
+  })();
+</script>
+</body>
+</html>
